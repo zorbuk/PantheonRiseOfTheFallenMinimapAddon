@@ -172,14 +172,14 @@ namespace PantheonRiseOfTheFallenMinimapAddon
 
         private void HandleJumpLoc(string text)
         {
-            var match = Regex.Match(text, @"([\d\.]+)\s+([\d\.]+)\s+([\d\.]+)\s+([\d\.]+)");
-            if (!match.Success)
-                return;
+            var matches = Regex.Matches(text, @"([\d]+(?:\.\d+)?)");
 
-            int x = int.Parse(match.Groups[1].Value, CultureInfo.InvariantCulture);
-            int y = int.Parse(match.Groups[3].Value, CultureInfo.InvariantCulture);
-
-            _minimap.SetPosition(x, y);
+            if (matches.Count >= 3)
+            {
+                int x = (int)float.Parse(matches[0].Value, CultureInfo.InvariantCulture);
+                int y = (int)float.Parse(matches[2].Value, CultureInfo.InvariantCulture);
+                _minimap.SetPosition(x, y);
+            }
         }
 
         protected override void WndProc(ref Message m)
