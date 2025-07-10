@@ -1,6 +1,7 @@
 ﻿using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
+using System.Web;
 using PantheonRiseOfTheFallenMinimapAddon.components;
 using PantheonRiseOfTheFallenMinimapAddon.foms;
 using PantheonRiseOfTheFallenMinimapAddon.marker;
@@ -133,7 +134,8 @@ namespace PantheonRiseOfTheFallenMinimapAddon
             var changeMarkerFile = new ToolStripMenuItem("📂 Load Marker File...");
             var newMarkerFile = new ToolStripMenuItem("📄 New Marker File...");
             var renameMarkerFile = new ToolStripMenuItem("✏️ Rename Marker File...");
-            var addMarkerButton = new ToolStripMenuItem("📍 Add Marker");
+            var addMarkerOnPlayerLocationButton = new ToolStripMenuItem("📍 Add Marker on Player Location");
+            var addMarkerOnMapCenterButton = new ToolStripMenuItem("📍 Add Marker on Map Center");
             var removeMarkerButton = new ToolStripMenuItem("🗑️ Remove Marker");
 
             zoomOutButton.Click += (s, e) =>
@@ -148,7 +150,7 @@ namespace PantheonRiseOfTheFallenMinimapAddon
                 UpdateZoomLabel();
                 minimap.SetPosition(minimap.x, minimap.y);
             };
-            addMarkerButton.Click += (s, e) =>
+            addMarkerOnPlayerLocationButton.Click += (s, e) =>
             {
                 string? name = InputBox.Show(
                     "Marker Name:",
@@ -161,6 +163,32 @@ namespace PantheonRiseOfTheFallenMinimapAddon
                     {
                         TopMostMessageBox.Show("Added marker.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
                         minimap.SaveMarkersToFile(markerManager.CurrentFilePath);
+                    }
+                }
+            };
+            addMarkerOnMapCenterButton.Click += (s, e) =>
+            {
+                string? name = InputBox.Show(
+                    "Marker Name:",
+                    "Save",
+                    "New Marker");
+
+                if (!string.IsNullOrWhiteSpace(name))
+                {
+                    var uri = new Uri(minimap.GetInstance().Source.AbsoluteUri);
+                    var query = HttpUtility.ParseQueryString(uri.Query);
+
+                    if (int.TryParse(query.Get("x"), out int x) && int.TryParse(query.Get("y"), out int y))
+                    {
+                        if (minimap.AddMarker(name, x, y, minimap.mapId))
+                        {
+                            TopMostMessageBox.Show("Added marker.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                            minimap.SaveMarkersToFile(markerManager.CurrentFilePath);
+                        }
+                    }
+                    else
+                    {
+                        TopMostMessageBox.Show("Could not parse coordinates from map URL.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     }
                 }
             };
@@ -251,7 +279,8 @@ namespace PantheonRiseOfTheFallenMinimapAddon
             markerMenu.DropDownItems.Add(changeMarkerFile);
             markerMenu.DropDownItems.Add(newMarkerFile);
             markerMenu.DropDownItems.Add(renameMarkerFile);
-            markerMenu.DropDownItems.Add(addMarkerButton);
+            markerMenu.DropDownItems.Add(addMarkerOnPlayerLocationButton);
+            markerMenu.DropDownItems.Add(addMarkerOnMapCenterButton);
             markerMenu.DropDownItems.Add(removeMarkerButton);
 
             menuStrip.Items.Add(markerMenu);
