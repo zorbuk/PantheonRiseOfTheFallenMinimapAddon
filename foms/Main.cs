@@ -44,6 +44,8 @@ namespace PantheonRiseOfTheFallenMinimapAddon
         private ToolStripLabel currentMapLabel;
         private ToolStripLabel zoomLabel;
         private ToolStripLabel markerFileLabel;
+        private Panel mainPanel;
+        private StatusStrip statusStrip;
 
         private const int WM_CLIPBOARDUPDATE = 0x031D;
         private static IntPtr HWND_MESSAGE = new IntPtr(-3);
@@ -61,14 +63,27 @@ namespace PantheonRiseOfTheFallenMinimapAddon
 
         private void Form1_Load(object sender, EventArgs e)
         {
+            mainPanel = new Panel
+            {
+                Dock = DockStyle.Fill
+            };
+            Controls.Add(mainPanel);
+
+            statusStrip = new StatusStrip
+            {
+                Dock = DockStyle.Bottom
+            };
+            Controls.Add(statusStrip);
+
             _markerManager = new MarkerManager(_markersLocation, _defaultMarkerName);
             _minimap = new Minimap();
             _minimap.LoadMarkersFromFile(_markerManager.CurrentFilePath);
-
             InitializeMinimap();
             InitializeMenu();
 
-            Controls.Add(_minimap.GetInstance());
+            Control minimapControl = _minimap.GetInstance();
+            minimapControl.Dock = DockStyle.Fill;
+            mainPanel.Controls.Add(minimapControl);
             _minimap.SetPosition(0, 0);
 
             TopMost = true;
@@ -145,20 +160,31 @@ namespace PantheonRiseOfTheFallenMinimapAddon
                     }
                 }
             };
+
             var removeMarkerButton = new ToolStripMenuItem("🗑️ Remove Marker");
             removeMarkerButton.Click += (s, e) =>
             {
-                string? name = InputBox.Show(
-                    "Marker Name:",
-                    "Remove",
-                    "");
+                var markerLabels = _minimap.GetMarkerLabels();
 
-                if (!string.IsNullOrWhiteSpace(name))
+                if (markerLabels.Count == 0)
                 {
-                    if (_minimap.RemoveMarker(name))
+                    TopMostMessageBox.Show("No markers to remove.", "Info", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    return;
+                }
+
+                using (var selector = new FormSelector("Select Marker", markerLabels))
+                {
+                    selector.TopMost = true;
+                    selector.ShowIcon = false;
+                    selector.ShowInTaskbar = false;
+
+                    if (selector.ShowDialog() == DialogResult.OK && !string.IsNullOrWhiteSpace(selector.SelectedFile))
                     {
-                        TopMostMessageBox.Show("Removed marker.", "Done", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                        _minimap.SaveMarkersToFile(_markerManager.CurrentFilePath);
+                        if (_minimap.RemoveMarker(selector.SelectedFile))
+                        {
+                            TopMostMessageBox.Show("Removed marker.", "Done", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                            _minimap.SaveMarkersToFile(_markerManager.CurrentFilePath);
+                        }
                     }
                 }
             };
@@ -175,7 +201,7 @@ namespace PantheonRiseOfTheFallenMinimapAddon
                     return;
                 }
 
-                var selection = new FormSelector(files);
+                var selection = new FormSelector("Select Marker File", files);
                 if (selection.ShowDialog() == DialogResult.OK && selection.SelectedFile != null)
                 {
                     _markerManager.ChangeCurrentFile(selection.SelectedFile);
@@ -228,7 +254,7 @@ namespace PantheonRiseOfTheFallenMinimapAddon
                 }
             };
 
-            markerFileLabel = new ToolStripLabel($"📁 {_markerManager.CurrentFileName}") { Padding = new Padding(10, 0, 0, 0) };
+            markerFileLabel = new ToolStripLabel($"📁 {_markerManager.CurrentFileName}") { Alignment = ToolStripItemAlignment.Right, Padding = new Padding(10, 0, 0, 0) };
 
 
             markerMenu.DropDownItems.Add(changeMarkerFile);
@@ -237,15 +263,34 @@ namespace PantheonRiseOfTheFallenMinimapAddon
             markerMenu.DropDownItems.Add(addMarkerButton);
             markerMenu.DropDownItems.Add(removeMarkerButton);
 
-            menuStrip.Items.Add(markerFileLabel);
             menuStrip.Items.Add(markerMenu);
             menuStrip.Items.Add(mapMenu);
             menuStrip.Items.Add(zoomOutButton);
             menuStrip.Items.Add(zoomInButton);
             menuStrip.Items.Add(zoomLabel);
             menuStrip.Items.Add(currentMapLabel);
+            menuStrip.Items.Add(markerFileLabel);
+
+            ToolStripStatusLabel currentTime = new ToolStripStatusLabel()
+            {
+                Text = $"🕛 {DateTime.Now.ToString("HH:mm:ss")}"
+            };
+
+            statusStrip.Items.Add(currentTime);
+
+            System.Windows.Forms.Timer timer = new System.Windows.Forms.Timer
+            {
+                Interval = 1000,
+                Enabled = true
+            };
+
+            timer.Tick += (s, e) =>
+            {
+                currentTime.Text = $"🕛 {DateTime.Now.ToString("HH:mm:ss")}";
+            };
 
             Controls.Add(menuStrip);
+            Controls.Add(statusStrip);
             MainMenuStrip = menuStrip;
         }
 

@@ -30,7 +30,8 @@ namespace PantheonRiseOfTheFallenMinimapAddon.minimap
                 string script = "" +
                     "document.querySelector('header')?.remove();" +
                     "document.querySelector('.leaflet-bottom')?.remove();" +
-                    "document.querySelector('.leaflet-control-attribution')?.remove();";
+                    "document.querySelector('.leaflet-control-attribution')?.remove();" +
+                    "document.querySelector('.leaflet-control-zoom')?.remove();";
                 await instance.ExecuteScriptAsync(script);
             };
 
@@ -48,6 +49,14 @@ namespace PantheonRiseOfTheFallenMinimapAddon.minimap
             this.y = y;
 
             UpdateMiniMap();
+        }
+
+        public List<string> GetMarkerLabels()
+        {
+            return extraMarkers
+                .Where(marker => marker.MapId == mapId)
+                .Select(marker => marker.Label)
+                .ToList();
         }
 
         public void UpdateMiniMap()
@@ -119,6 +128,7 @@ namespace PantheonRiseOfTheFallenMinimapAddon.minimap
                 {
                     extraMarkers.Clear();
                     extraMarkers.AddRange(loadedMarkers);
+                    UpdateMiniMap();
                 }
             }
             catch (Exception ex)

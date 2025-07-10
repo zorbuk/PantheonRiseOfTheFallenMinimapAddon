@@ -19,9 +19,9 @@ namespace PantheonRiseOfTheFallenMinimapAddon.foms
 
         public string? SelectedFile { get; private set; }
 
-        public FormSelector(List<string> files)
+        public FormSelector(string title, List<string> files)
         {
-            Text = "Select Marker File";
+            Text = title;
             Size = new Size(300, 400);
             FormBorderStyle = FormBorderStyle.FixedDialog;
             StartPosition = FormStartPosition.CenterScreen;
