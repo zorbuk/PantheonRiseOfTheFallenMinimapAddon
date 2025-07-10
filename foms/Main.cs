@@ -1,6 +1,10 @@
 ﻿using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
+using PantheonRiseOfTheFallenMinimapAddon.components;
+using PantheonRiseOfTheFallenMinimapAddon.foms;
+using PantheonRiseOfTheFallenMinimapAddon.marker;
+using PantheonRiseOfTheFallenMinimapAddon.minimap;
 
 namespace PantheonRiseOfTheFallenMinimapAddon
 {
@@ -29,13 +33,17 @@ namespace PantheonRiseOfTheFallenMinimapAddon
 
      */
 
-    public partial class Form : System.Windows.Forms.Form
+    public partial class Main : System.Windows.Forms.Form
     {
+        private string _markersLocation = "./markers";
+        private string _defaultMarkerName = "default_markers.json";
         private Minimap _minimap;
+        private MarkerManager _markerManager;
 
         private MenuStrip menuStrip;
         private ToolStripLabel currentMapLabel;
         private ToolStripLabel zoomLabel;
+        private ToolStripLabel markerFileLabel;
 
         private const int WM_CLIPBOARDUPDATE = 0x031D;
         private static IntPtr HWND_MESSAGE = new IntPtr(-3);
@@ -46,15 +54,16 @@ namespace PantheonRiseOfTheFallenMinimapAddon
         [DllImport("user32.dll", SetLastError = true)]
         private static extern bool RemoveClipboardFormatListener(IntPtr hwnd);
 
-        public Form()
+        public Main()
         {
             InitializeComponent();
         }
 
         private void Form1_Load(object sender, EventArgs e)
         {
+            _markerManager = new MarkerManager(_markersLocation, _defaultMarkerName);
             _minimap = new Minimap();
-            _minimap.LoadPinsFromFile("./pines.json");
+            _minimap.LoadMarkersFromFile(_markerManager.CurrentFilePath);
 
             InitializeMinimap();
             InitializeMenu();
@@ -119,45 +128,118 @@ namespace PantheonRiseOfTheFallenMinimapAddon
             zoomLabel = new ToolStripLabel($"🔍 {_minimap.Zoom}") { Padding = new Padding(10, 0, 0, 0) };
             currentMapLabel = new ToolStripLabel($"🗺️ {maps[_minimap.mapId]}") { Alignment = ToolStripItemAlignment.Right, Padding = new Padding(10, 0, 0, 0) };
 
-            var optionsMenu = new ToolStripMenuItem("Options");
-            var addPinButton = new ToolStripMenuItem("📍 Add Pin");
-            addPinButton.Click += (s, e) =>
+            var addMarkerButton = new ToolStripMenuItem("📍 Add Marker");
+            addMarkerButton.Click += (s, e) =>
             {
-                string? name = Microsoft.VisualBasic.Interaction.InputBox(
-                    "Pin Name:",
+                string? name = InputBox.Show(
+                    "Marker Name:",
                     "Save",
-                    "New Pin");
+                    "New Marker");
 
                 if (!string.IsNullOrWhiteSpace(name))
                 {
-                    if(_minimap.AddPin(name, _minimap.x, _minimap.y))
+                    if(_minimap.AddMarker(name, _minimap.x, _minimap.y, _minimap.mapId))
                     {
-                        MessageBox.Show("Added pin.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        TopMostMessageBox.Show("Added marker.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        _minimap.SaveMarkersToFile(_markerManager.CurrentFilePath);
                     }
                 }
             };
-            var removePinButton = new ToolStripMenuItem("🗑️ Remove Pin");
-            removePinButton.Click += (s, e) =>
+            var removeMarkerButton = new ToolStripMenuItem("🗑️ Remove Marker");
+            removeMarkerButton.Click += (s, e) =>
             {
-                string? name = Microsoft.VisualBasic.Interaction.InputBox(
-                    "Pin Name:",
+                string? name = InputBox.Show(
+                    "Marker Name:",
                     "Remove",
                     "");
 
                 if (!string.IsNullOrWhiteSpace(name))
                 {
-                    if (_minimap.RemovePin(name))
+                    if (_minimap.RemoveMarker(name))
                     {
-                        MessageBox.Show("Removed pin.", "Done", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        TopMostMessageBox.Show("Removed marker.", "Done", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        _minimap.SaveMarkersToFile(_markerManager.CurrentFilePath);
                     }
                 }
             };
 
-            optionsMenu.DropDownItems.Add(addPinButton);
-            optionsMenu.DropDownItems.Add(removePinButton);
+            var markerMenu = new ToolStripMenuItem("Markers");
 
+            var changeMarkerFile = new ToolStripMenuItem("📂 Load Marker File...");
+            changeMarkerFile.Click += (s, e) =>
+            {
+                var files = _markerManager.GetAvailableMarkerFiles();
+                if (files.Count == 0)
+                {
+                    TopMostMessageBox.Show("No marker files found.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+
+                var selection = new FormSelector(files);
+                if (selection.ShowDialog() == DialogResult.OK && selection.SelectedFile != null)
+                {
+                    _markerManager.ChangeCurrentFile(selection.SelectedFile);
+                    _minimap.LoadMarkersFromFile(_markerManager.CurrentFilePath);
+                    UpdateMarkerFileLabel();
+                }
+            };
+
+            var renameMarkerFile = new ToolStripMenuItem("✏️ Rename Marker File...");
+            renameMarkerFile.Click += (s, e) =>
+            {
+                string? newName = InputBox.Show(
+                    "New file name (with .json):", 
+                    "Rename", 
+                    _markerManager.CurrentFileName);
+
+                if (!string.IsNullOrWhiteSpace(newName))
+                {
+                    if (_markerManager.RenameCurrentFile(newName))
+                    {
+                        UpdateMarkerFileLabel();
+                        TopMostMessageBox.Show("File renamed successfully.", "Done", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }
+                    else
+                    {
+                        TopMostMessageBox.Show("Could not rename file. File may already exist.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                }
+            };
+
+            var newMarkerFile = new ToolStripMenuItem("📄 New Marker File...");
+            newMarkerFile.Click += (s, e) =>
+            {
+                string? newFileName = InputBox.Show(
+                    "Enter new file name (with .json):",
+                    "Create Marker File",
+                    "markers.json");
+
+                if (!string.IsNullOrWhiteSpace(newFileName))
+                {
+                    if (_markerManager.CreateNewMarkerFile(newFileName))
+                    {
+                        UpdateMarkerFileLabel();
+                        TopMostMessageBox.Show("New marker file created successfully.", "Done", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }
+                    else
+                    {
+                        TopMostMessageBox.Show("Could not create file. File may already exist or name is invalid.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                }
+            };
+
+            markerFileLabel = new ToolStripLabel($"📁 {_markerManager.CurrentFileName}") { Padding = new Padding(10, 0, 0, 0) };
+
+
+            markerMenu.DropDownItems.Add(changeMarkerFile);
+            markerMenu.DropDownItems.Add(newMarkerFile);
+            markerMenu.DropDownItems.Add(renameMarkerFile);
+            markerMenu.DropDownItems.Add(addMarkerButton);
+            markerMenu.DropDownItems.Add(removeMarkerButton);
+
+            menuStrip.Items.Add(markerFileLabel);
+            menuStrip.Items.Add(markerMenu);
             menuStrip.Items.Add(mapMenu);
-            menuStrip.Items.Add(optionsMenu);
             menuStrip.Items.Add(zoomOutButton);
             menuStrip.Items.Add(zoomInButton);
             menuStrip.Items.Add(zoomLabel);
@@ -169,6 +251,7 @@ namespace PantheonRiseOfTheFallenMinimapAddon
 
         private void UpdateZoomLabel() => zoomLabel.Text = $"🔍 {_minimap.Zoom}";
         private void UpdateCurrentMapLabel(string name) => currentMapLabel.Text = $"🗺️ {name}";
+        private void UpdateMarkerFileLabel() => markerFileLabel.Text = $"📁 {_markerManager.CurrentFileName}";
 
         private void HandleJumpLoc(string text)
         {
@@ -201,12 +284,6 @@ namespace PantheonRiseOfTheFallenMinimapAddon
             }
 
             base.WndProc(ref m);
-        }
-
-        protected override void OnFormClosing(FormClosingEventArgs e)
-        {
-            _minimap.SavePinsToFile("./pines.json");
-            base.OnFormClosing(e);
         }
     }
 }

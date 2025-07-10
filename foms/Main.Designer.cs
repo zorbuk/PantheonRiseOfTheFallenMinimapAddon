@@ -1,6 +1,6 @@
 ﻿namespace PantheonRiseOfTheFallenMinimapAddon
 {
-    partial class Form
+    partial class Main
     {
         /// <summary>
         ///  Required designer variable.
@@ -28,7 +28,7 @@
         /// </summary>
         private void InitializeComponent()
         {
-            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(Form));
+            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(Main));
             SuspendLayout();
             // 
             // Form

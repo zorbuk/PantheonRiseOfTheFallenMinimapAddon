@@ -1,7 +1,7 @@
 ﻿using Microsoft.Web.WebView2.WinForms;
 using System.Text.Json;
 
-namespace PantheonRiseOfTheFallenMinimapAddon
+namespace PantheonRiseOfTheFallenMinimapAddon.minimap
 {
     public class Minimap
     {
@@ -18,7 +18,7 @@ namespace PantheonRiseOfTheFallenMinimapAddon
         public int x = 0;
         public int y = 0;
 
-        private readonly List<MinimapPin> extraPins = new();
+        private readonly List<MinimapMarker> extraMarkers = new();
 
         public Minimap()
         {
@@ -47,41 +47,43 @@ namespace PantheonRiseOfTheFallenMinimapAddon
             this.x = x;
             this.y = y;
 
-           UpdateMiniMap();
+            UpdateMiniMap();
         }
 
         public void UpdateMiniMap()
         {
-            List<MinimapPin> pins = new(extraPins)
+            List<MinimapMarker> markers = new(extraMarkers)
             {
-                new MinimapPin(x, y, "👤Player")
+                new MinimapMarker(x, y, "👤Player", mapId)
             };
-            string url = minimapUrlBuilder.GetUrl(mapId, zoom, x, y, pins);
+
+            string url = minimapUrlBuilder.GetUrl(mapId, zoom, x, y, markers.Where(marker => marker.MapId == mapId));
             instance.Source = new Uri(url);
         }
 
-        public bool AddPin(string name, int x, int y)
+        public bool AddMarker(string name, int x, int y, int mapId)
         {
-            if (extraPins.Any(p => p.Label.Equals(name, StringComparison.OrdinalIgnoreCase)))
+            if (extraMarkers.Any(p => p.Label.Equals(name, StringComparison.OrdinalIgnoreCase)))
                 return false;
 
-            extraPins.Add(new MinimapPin
+            extraMarkers.Add(new MinimapMarker
             {
                 Label = name,
                 X = x,
-                Y = y
+                Y = y,
+                MapId = mapId
             });
 
             UpdateMiniMap();
             return true;
         }
 
-        public bool RemovePin(string name)
+        public bool RemoveMarker(string name)
         {
-            var pin = extraPins.FirstOrDefault(p => p.Label.Equals(name, StringComparison.OrdinalIgnoreCase));
-            if (pin != null)
+            var marker = extraMarkers.FirstOrDefault(p => p.Label.Equals(name, StringComparison.OrdinalIgnoreCase));
+            if (marker != null)
             {
-                extraPins.Remove(pin);
+                extraMarkers.Remove(marker);
 
                 UpdateMiniMap();
                 return true;
@@ -89,22 +91,22 @@ namespace PantheonRiseOfTheFallenMinimapAddon
             return false;
         }
 
-        public void SetExtraPins(IEnumerable<MinimapPin> pins)
+        public void SetExtraMarkers(IEnumerable<MinimapMarker> markers)
         {
-            extraPins.Clear();
-            extraPins.AddRange(pins);
+            extraMarkers.Clear();
+            extraMarkers.AddRange(markers);
         }
 
-        public void SavePinsToFile(string filePath)
+        public void SaveMarkersToFile(string filePath)
         {
             var options = new JsonSerializerOptions
             {
                 WriteIndented = true
             };
-            File.WriteAllText(filePath, JsonSerializer.Serialize(extraPins, options));
+            File.WriteAllText(filePath, JsonSerializer.Serialize(extraMarkers, options));
         }
 
-        public void LoadPinsFromFile(string filePath)
+        public void LoadMarkersFromFile(string filePath)
         {
             if (!File.Exists(filePath))
                 return;
@@ -112,16 +114,16 @@ namespace PantheonRiseOfTheFallenMinimapAddon
             try
             {
                 string json = File.ReadAllText(filePath);
-                var loadedPins = JsonSerializer.Deserialize<List<MinimapPin>>(json);
-                if (loadedPins != null)
+                var loadedMarkers = JsonSerializer.Deserialize<List<MinimapMarker>>(json);
+                if (loadedMarkers != null)
                 {
-                    extraPins.Clear();
-                    extraPins.AddRange(loadedPins);
+                    extraMarkers.Clear();
+                    extraMarkers.AddRange(loadedMarkers);
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Error loading pins from JSON: " + ex.Message);
+                Console.WriteLine("Error loading markers from JSON: " + ex.Message);
             }
         }
     }
