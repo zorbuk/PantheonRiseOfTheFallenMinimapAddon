@@ -35,10 +35,10 @@ namespace PantheonRiseOfTheFallenMinimapAddon
 
     public partial class Main : System.Windows.Forms.Form
     {
-        private string _markersLocation = "./markers";
-        private string _defaultMarkerName = "default_markers.json";
-        private Minimap _minimap;
-        private MarkerManager _markerManager;
+        private string markersLocation = "./markers";
+        private string defaultMarkerFileName = "default_markers.json";
+        private Minimap minimap;
+        private MarkerManager markerManager;
 
         private MenuStrip menuStrip;
         private ToolStripLabel currentMapLabel;
@@ -61,7 +61,7 @@ namespace PantheonRiseOfTheFallenMinimapAddon
             InitializeComponent();
         }
 
-        private void Form1_Load(object sender, EventArgs e)
+        private void Main_Load(object sender, EventArgs e)
         {
             mainPanel = new Panel
             {
@@ -69,44 +69,42 @@ namespace PantheonRiseOfTheFallenMinimapAddon
             };
             Controls.Add(mainPanel);
 
-            statusStrip = new StatusStrip
-            {
-                Dock = DockStyle.Bottom
-            };
-            Controls.Add(statusStrip);
-
-            _markerManager = new MarkerManager(_markersLocation, _defaultMarkerName);
-            _minimap = new Minimap();
-            _minimap.LoadMarkersFromFile(_markerManager.CurrentFilePath);
             InitializeMinimap();
             InitializeMenu();
-
-            Control minimapControl = _minimap.GetInstance();
-            minimapControl.Dock = DockStyle.Fill;
-            mainPanel.Controls.Add(minimapControl);
-            _minimap.SetPosition(0, 0);
 
             TopMost = true;
             AddClipboardFormatListener(this.Handle);
         }
 
+        private void UpdateZoomLabel() => zoomLabel.Text = $"🔍 {minimap.Zoom}";
+        private void UpdateCurrentMapLabel(string name) => currentMapLabel.Text = $"🗺️ {name}";
+        private void UpdateMarkerFileLabel() => markerFileLabel.Text = $"📁 {markerManager.CurrentFileName}";
+
         public void InitializeMinimap()
         {
-            _minimap.GetInstance().Dock = DockStyle.Fill;
+            markerManager = new MarkerManager(markersLocation, defaultMarkerFileName);
+            minimap = new Minimap();
+            minimap.LoadMarkersFromFile(markerManager.CurrentFilePath);
+            Control minimapControl = minimap.GetInstance();
+            minimapControl.Dock = DockStyle.Fill;
+            mainPanel.Controls.Add(minimapControl);
+            minimap.SetPosition(minimap.x, minimap.y);
         }
-
         private void InitializeMenu()
         {
             menuStrip = new MenuStrip();
-            var mapMenu = new ToolStripMenuItem("Maps");
+            statusStrip = new StatusStrip
+            {
+                Dock = DockStyle.Bottom
+            };
 
+            var mapMenu = new ToolStripMenuItem("Maps");
             var maps = new Dictionary<int, string>
             {
                 { 1, "Kingsreach" },
                 { 2, "Halnir Cave" },
                 { 3, "Goblin Cave" }
             };
-
             foreach (var kvp in maps)
             {
                 var mapItem = new ToolStripMenuItem(kvp.Value)
@@ -116,34 +114,40 @@ namespace PantheonRiseOfTheFallenMinimapAddon
 
                 mapItem.Click += (s, e) =>
                 {
-                    _minimap.mapId = kvp.Key;
+                    minimap.mapId = kvp.Key;
                     UpdateCurrentMapLabel(kvp.Value);
-                    _minimap.SetPosition(_minimap.x, _minimap.y);
+                    minimap.SetPosition(minimap.x, minimap.y);
                 };
 
                 mapMenu.DropDownItems.Add(mapItem);
             }
 
             var zoomOutButton = new ToolStripButton("🔍➖");
+            var zoomInButton = new ToolStripButton("🔍➕");
+
+            zoomLabel = new ToolStripLabel($"🔍 {minimap.Zoom}") { Padding = new Padding(10, 0, 0, 0) };
+            currentMapLabel = new ToolStripLabel($"🗺️ {maps[minimap.mapId]}") { Alignment = ToolStripItemAlignment.Right, Padding = new Padding(10, 0, 0, 0) };
+            markerFileLabel = new ToolStripLabel($"📁 {markerManager.CurrentFileName}") { Alignment = ToolStripItemAlignment.Right, Padding = new Padding(10, 0, 0, 0) };
+
+            var markerMenu = new ToolStripMenuItem("Markers");
+            var changeMarkerFile = new ToolStripMenuItem("📂 Load Marker File...");
+            var newMarkerFile = new ToolStripMenuItem("📄 New Marker File...");
+            var renameMarkerFile = new ToolStripMenuItem("✏️ Rename Marker File...");
+            var addMarkerButton = new ToolStripMenuItem("📍 Add Marker");
+            var removeMarkerButton = new ToolStripMenuItem("🗑️ Remove Marker");
+
             zoomOutButton.Click += (s, e) =>
             {
-                _minimap.ZoomOut();
+                minimap.ZoomOut();
                 UpdateZoomLabel();
-                _minimap.SetPosition(_minimap.x, _minimap.y);
+                minimap.SetPosition(minimap.x, minimap.y);
             };
-
-            var zoomInButton = new ToolStripButton("🔍➕");
             zoomInButton.Click += (s, e) =>
             {
-                _minimap.ZoomIn();
+                minimap.ZoomIn();
                 UpdateZoomLabel();
-                _minimap.SetPosition(_minimap.x, _minimap.y);
+                minimap.SetPosition(minimap.x, minimap.y);
             };
-
-            zoomLabel = new ToolStripLabel($"🔍 {_minimap.Zoom}") { Padding = new Padding(10, 0, 0, 0) };
-            currentMapLabel = new ToolStripLabel($"🗺️ {maps[_minimap.mapId]}") { Alignment = ToolStripItemAlignment.Right, Padding = new Padding(10, 0, 0, 0) };
-
-            var addMarkerButton = new ToolStripMenuItem("📍 Add Marker");
             addMarkerButton.Click += (s, e) =>
             {
                 string? name = InputBox.Show(
@@ -153,18 +157,16 @@ namespace PantheonRiseOfTheFallenMinimapAddon
 
                 if (!string.IsNullOrWhiteSpace(name))
                 {
-                    if(_minimap.AddMarker(name, _minimap.x, _minimap.y, _minimap.mapId))
+                    if(minimap.AddMarker(name, minimap.x, minimap.y, minimap.mapId))
                     {
                         TopMostMessageBox.Show("Added marker.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                        _minimap.SaveMarkersToFile(_markerManager.CurrentFilePath);
+                        minimap.SaveMarkersToFile(markerManager.CurrentFilePath);
                     }
                 }
             };
-
-            var removeMarkerButton = new ToolStripMenuItem("🗑️ Remove Marker");
             removeMarkerButton.Click += (s, e) =>
             {
-                var markerLabels = _minimap.GetMarkerLabels();
+                var markerLabels = minimap.GetMarkerLabels();
 
                 if (markerLabels.Count == 0)
                 {
@@ -180,21 +182,17 @@ namespace PantheonRiseOfTheFallenMinimapAddon
 
                     if (selector.ShowDialog() == DialogResult.OK && !string.IsNullOrWhiteSpace(selector.SelectedFile))
                     {
-                        if (_minimap.RemoveMarker(selector.SelectedFile))
+                        if (minimap.RemoveMarker(selector.SelectedFile))
                         {
                             TopMostMessageBox.Show("Removed marker.", "Done", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                            _minimap.SaveMarkersToFile(_markerManager.CurrentFilePath);
+                            minimap.SaveMarkersToFile(markerManager.CurrentFilePath);
                         }
                     }
                 }
             };
-
-            var markerMenu = new ToolStripMenuItem("Markers");
-
-            var changeMarkerFile = new ToolStripMenuItem("📂 Load Marker File...");
             changeMarkerFile.Click += (s, e) =>
             {
-                var files = _markerManager.GetAvailableMarkerFiles();
+                var files = markerManager.GetAvailableMarkerFiles();
                 if (files.Count == 0)
                 {
                     TopMostMessageBox.Show("No marker files found.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
@@ -204,23 +202,21 @@ namespace PantheonRiseOfTheFallenMinimapAddon
                 var selection = new FormSelector("Select Marker File", files);
                 if (selection.ShowDialog() == DialogResult.OK && selection.SelectedFile != null)
                 {
-                    _markerManager.ChangeCurrentFile(selection.SelectedFile);
-                    _minimap.LoadMarkersFromFile(_markerManager.CurrentFilePath);
+                    markerManager.ChangeCurrentFile(selection.SelectedFile);
+                    minimap.LoadMarkersFromFile(markerManager.CurrentFilePath);
                     UpdateMarkerFileLabel();
                 }
             };
-
-            var renameMarkerFile = new ToolStripMenuItem("✏️ Rename Marker File...");
             renameMarkerFile.Click += (s, e) =>
             {
                 string? newName = InputBox.Show(
                     "New file name (with .json):", 
                     "Rename", 
-                    _markerManager.CurrentFileName);
+                    markerManager.CurrentFileName);
 
                 if (!string.IsNullOrWhiteSpace(newName))
                 {
-                    if (_markerManager.RenameCurrentFile(newName))
+                    if (markerManager.RenameCurrentFile(newName))
                     {
                         UpdateMarkerFileLabel();
                         TopMostMessageBox.Show("File renamed successfully.", "Done", MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -231,8 +227,6 @@ namespace PantheonRiseOfTheFallenMinimapAddon
                     }
                 }
             };
-
-            var newMarkerFile = new ToolStripMenuItem("📄 New Marker File...");
             newMarkerFile.Click += (s, e) =>
             {
                 string? newFileName = InputBox.Show(
@@ -242,7 +236,7 @@ namespace PantheonRiseOfTheFallenMinimapAddon
 
                 if (!string.IsNullOrWhiteSpace(newFileName))
                 {
-                    if (_markerManager.CreateNewMarkerFile(newFileName))
+                    if (markerManager.CreateNewMarkerFile(newFileName))
                     {
                         UpdateMarkerFileLabel();
                         TopMostMessageBox.Show("New marker file created successfully.", "Done", MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -253,9 +247,6 @@ namespace PantheonRiseOfTheFallenMinimapAddon
                     }
                 }
             };
-
-            markerFileLabel = new ToolStripLabel($"📁 {_markerManager.CurrentFileName}") { Alignment = ToolStripItemAlignment.Right, Padding = new Padding(10, 0, 0, 0) };
-
 
             markerMenu.DropDownItems.Add(changeMarkerFile);
             markerMenu.DropDownItems.Add(newMarkerFile);
@@ -275,15 +266,12 @@ namespace PantheonRiseOfTheFallenMinimapAddon
             {
                 Text = $"🕛 {DateTime.Now.ToString("HH:mm:ss")}"
             };
-
             statusStrip.Items.Add(currentTime);
-
             System.Windows.Forms.Timer timer = new System.Windows.Forms.Timer
             {
                 Interval = 1000,
                 Enabled = true
             };
-
             timer.Tick += (s, e) =>
             {
                 currentTime.Text = $"🕛 {DateTime.Now.ToString("HH:mm:ss")}";
@@ -291,12 +279,9 @@ namespace PantheonRiseOfTheFallenMinimapAddon
 
             Controls.Add(menuStrip);
             Controls.Add(statusStrip);
+
             MainMenuStrip = menuStrip;
         }
-
-        private void UpdateZoomLabel() => zoomLabel.Text = $"🔍 {_minimap.Zoom}";
-        private void UpdateCurrentMapLabel(string name) => currentMapLabel.Text = $"🗺️ {name}";
-        private void UpdateMarkerFileLabel() => markerFileLabel.Text = $"📁 {_markerManager.CurrentFileName}";
 
         private void HandleJumpLoc(string text)
         {
@@ -306,7 +291,7 @@ namespace PantheonRiseOfTheFallenMinimapAddon
             {
                 int x = (int)float.Parse(matches[0].Value, CultureInfo.InvariantCulture);
                 int y = (int)float.Parse(matches[2].Value, CultureInfo.InvariantCulture);
-                _minimap.SetPosition(x, y);
+                minimap.SetPosition(x, y);
             }
         }
 

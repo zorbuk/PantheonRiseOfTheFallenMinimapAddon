@@ -42,7 +42,7 @@
             Margin = new Padding(5);
             Name = "Form";
             Text = "Pantheon Minimap | @chiquitinop | github.com/zorbuk";
-            Load += Form1_Load;
+            Load += Main_Load;
             ResumeLayout(false);
         }
 
