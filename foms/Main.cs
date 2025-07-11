@@ -57,6 +57,27 @@ namespace PantheonRiseOfTheFallenMinimapAddon
         [DllImport("user32.dll", SetLastError = true)]
         private static extern bool RemoveClipboardFormatListener(IntPtr hwnd);
 
+        [DllImport("user32.dll")]
+        public static extern bool ReleaseCapture();
+
+        [DllImport("user32.dll")]
+        public static extern int SendMessage(IntPtr hWnd, int Msg, int wParam, int lParam);
+
+        private const int WM_NCLBUTTONDOWN = 0xA1;
+        private const int HTCAPTION = 0x2;
+
+        private void EnableDrag(Control control)
+        {
+            control.MouseDown += (s, e) =>
+            {
+                if (e.Button == MouseButtons.Left)
+                {
+                    ReleaseCapture();
+                    SendMessage(Handle, WM_NCLBUTTONDOWN, HTCAPTION, 0);
+                }
+            };
+        }
+
         public Main()
         {
             InitializeComponent();
@@ -74,7 +95,11 @@ namespace PantheonRiseOfTheFallenMinimapAddon
             InitializeMenu();
 
             TopMost = true;
+            Opacity = 0.60;
             AddClipboardFormatListener(this.Handle);
+
+            EnableDrag(menuStrip);
+            EnableDrag(statusStrip);
         }
 
         private void UpdateZoomLabel() => zoomLabel.Text = $"🔍 {minimap.Zoom}";
@@ -125,6 +150,11 @@ namespace PantheonRiseOfTheFallenMinimapAddon
 
             var zoomOutButton = new ToolStripButton("🔍➖");
             var zoomInButton = new ToolStripButton("🔍➕");
+
+            var decreaseOpacityButton = new ToolStripButton("Opacity ➖");
+            var increaseOpacityButton = new ToolStripButton("Opacity ➕");
+            var toggleBorderButton = new ToolStripButton("Toggle Border");
+
 
             zoomLabel = new ToolStripLabel($"🔍 {minimap.Zoom}") { Padding = new Padding(10, 0, 0, 0) };
             currentMapLabel = new ToolStripLabel($"🗺️ {maps[minimap.mapId]}") { Alignment = ToolStripItemAlignment.Right, Padding = new Padding(10, 0, 0, 0) };
@@ -275,6 +305,23 @@ namespace PantheonRiseOfTheFallenMinimapAddon
                     }
                 }
             };
+            decreaseOpacityButton.Click += (s, e) =>
+            {
+                double newOpacity = Math.Max(0.10, Opacity - 0.05);
+                Opacity = newOpacity;
+            };
+            increaseOpacityButton.Click += (s, e) =>
+            {
+                double newOpacity = Math.Min(1.00, Opacity + 0.05);
+                Opacity = newOpacity;
+            };
+            toggleBorderButton.Click += (s, e) =>
+            {
+                if (FormBorderStyle == FormBorderStyle.None)
+                    FormBorderStyle = FormBorderStyle.Sizable;
+                else
+                    FormBorderStyle = FormBorderStyle.None;
+            };
 
             markerMenu.DropDownItems.Add(changeMarkerFile);
             markerMenu.DropDownItems.Add(newMarkerFile);
@@ -296,6 +343,9 @@ namespace PantheonRiseOfTheFallenMinimapAddon
                 Text = $"🕛 {DateTime.Now.ToString("HH:mm:ss")}"
             };
             statusStrip.Items.Add(currentTime);
+            statusStrip.Items.Add(decreaseOpacityButton);
+            statusStrip.Items.Add(increaseOpacityButton);
+            statusStrip.Items.Add(toggleBorderButton);
             System.Windows.Forms.Timer timer = new System.Windows.Forms.Timer
             {
                 Interval = 1000,
