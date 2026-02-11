@@ -364,7 +364,7 @@ namespace PantheonRiseOfTheFallenMinimapAddon
 
         private void HandleJumpLoc(string text)
         {
-            var matches = Regex.Matches(text, @"([\d]+(?:\.\d+)?)");
+            var matches = Regex.Matches(text, @"(-?[\d]+(?:\.\d+)?)");
 
             if (matches.Count >= 3)
             {
